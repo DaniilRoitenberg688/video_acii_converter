@@ -2,7 +2,7 @@ use artem::config::{Config, ConfigBuilder};
 use ndarray::Array3;
 use core::num::NonZeroU32;
 use image::{ImageBuffer, ImageReader, Rgb};
-use std::{path::Path, time::Duration};
+use std::{path::Path, sync::mpsc::{self, Sender}, thread, time::Duration};
 use video_rs::{decode::Decoder, frame::{self, RawFrame}};
 
 use color_eyre::{eyre::Context, Result};
@@ -29,19 +29,21 @@ fn get_images_ascii(images: Vec<&str>, conf: &Config) -> Vec<String> {
     return res;
 }
 
-fn get_frames_from_video(name: &str, conf: &Config) -> Vec<String> {
-    let mut res: Vec<String> = vec![];
+fn get_frames_from_video(name: &str, conf: &Config, image_t: Sender<String>) {
+    let mut frame_counter = 0;
     let mut decoder = Decoder::new(Path::new(name)).unwrap();
     for i in decoder.decode_raw_iter() {
-        match i {
-            Ok(frame) => {
-                let art = convert_frame_to_ascii(frame, conf);
-                res.push(art);
-            },
-            _ => break
+        if frame_counter % 2 == 0 {
+            match i {
+                Ok(frame) => {
+                    let art = convert_frame_to_ascii(frame, conf);
+                    image_t.send(art).unwrap();
+                },
+                _ => break
+            }
         }
+        frame_counter += 1;
     }
-    return res;
 }
 
 fn convert_frame_to_ascii(frame: RawFrame, conf: &Config) -> String {
@@ -84,21 +86,29 @@ fn run(mut terminal: DefaultTerminal) -> Result<()> {
     //
     let conf: Box<Config> = Box::new(
         ConfigBuilder::new()
-            .target_size(NonZeroU32::new(250).unwrap())
+            .target_size(NonZeroU32::new(200).unwrap())
             .color(false)
             .build(),
     );
-    let images = get_frames_from_video("hakari.mp4", &conf);
-    let mut index = 0;
+
+    
+    let (image_t, image_r) = mpsc::channel::<String>();
+
+    thread::spawn(move || {
+        get_frames_from_video("hakari2.mp4", &conf, image_t);
+    });
     loop {
-        terminal.draw(|frame: &mut Frame| draw(frame, &images[index % images.len()]))?;
+        match image_r.recv() {
+            Ok(image) => {
+                terminal.draw(|frame: &mut Frame| draw(frame, &image))?;
+
+            },
+            _ => {break;},
+        }
+
         if should_quit()? {
             break;
         }
-        if index >= images.len() {
-            break;
-        }
-        index += 1;
     }
     Ok(())
 }
@@ -123,13 +133,12 @@ fn render_colored_artem(art_string: &String) -> Text<'static> {
 }
 
 fn draw(frame: &mut Frame, text: &String) {
-    let data = render_colored_artem(text);
-    let greeting = Paragraph::new(data);
+    let greeting = Paragraph::new(text as &str);
     frame.render_widget(greeting, frame.area());
 }
 
 fn should_quit() -> Result<bool> {
-    if event::poll(Duration::from_millis(30)).context("event poll failed")? {
+    if event::poll(Duration::from_millis(1)).context("event poll failed")? {
         if let Event::Key(key) = event::read().context("event read failed")? {
             return Ok(KeyCode::Char('q') == key.code);
         }
