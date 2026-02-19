@@ -5,14 +5,14 @@ use std::{path::Path, sync::mpsc::Sender};
 use video_rs::{decode::Decoder, frame::RawFrame};
 
 #[allow(dead_code)]
-pub fn convert_image(name: &str, conf: &Config) -> String {
+pub fn convert_image(name: String, conf: &Config) -> String {
     let i = ImageReader::open(name).unwrap().decode().unwrap();
     let art = artem::convert(i, &conf);
     return art;
 }
 
 #[allow(dead_code)]
-pub fn get_images_ascii(images: Vec<&str>, conf: &Config) -> Vec<String> {
+pub fn get_images_ascii(images: Vec<String>, conf: &Config) -> Vec<String> {
     let mut res: Vec<String> = vec![];
     for i in images {
         res.push(convert_image(i, conf));

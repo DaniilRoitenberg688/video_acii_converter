@@ -1,6 +1,7 @@
 mod ascii_converter;
-
+mod cli;
 use artem::{ConfigBuilder, config::Config};
+use cli::parse;
 use color_eyre::{Result, eyre::Context};
 use core::num::NonZeroU32;
 use ratatui::{
@@ -10,17 +11,45 @@ use ratatui::{
 };
 use std::{sync::mpsc, thread, time::Duration};
 
-use crate::ascii_converter::*;
+use crate::{ascii_converter::*, cli::File};
 
-pub fn run(file_name: &str) -> Result<()> {
-    color_eyre::install()?; // augment errors / panics with easy to read messages
-    let terminal = ratatui::init();
-    let app_result = run_tui(terminal, file_name).context("app loop failed");
-    ratatui::restore();
-    app_result
+pub fn run() -> Result<(), String> {
+    match parse() {
+        Ok(file_name) => {
+            if let Err(_) = color_eyre::install() {
+                return Err("cannot start application".to_string());
+            }; // augment errors / panics with easy to read messages
+            let terminal = ratatui::init();
+            let app_result = match file_name {
+                File::Video(name) => run_tui_video(terminal, name),
+                File::Image(name) => run_tui_image(terminal, name),
+            };
+            ratatui::restore();
+            if let Err(_) = app_result {
+                return Err("cannot start loop".to_string());
+            }
+            return Ok(());
+        }
+        Err(err) => Err(err),
+    }
 }
 
-fn run_tui(mut terminal: DefaultTerminal, file_name: &str) -> Result<()> {
+fn run_tui_image(mut terminal: DefaultTerminal, file_name: String) -> Result<()> {
+    let conf: Config = ConfigBuilder::new()
+        .target_size(NonZeroU32::new(200).unwrap())
+        .color(false)
+        .build();
+    let art = convert_image(file_name, &conf);
+    loop {
+        terminal.draw(|frame: &mut Frame| draw(frame, &art))?;
+        if should_quit()? {
+            break;
+        }
+    }
+    return Ok(());
+}
+
+fn run_tui_video(mut terminal: DefaultTerminal, file_name: String) -> Result<()> {
     //println!("{art}");
     // let images = get_iamges_ascii(vec!["test.png", "test2.png", "test3.png"]);
     //
