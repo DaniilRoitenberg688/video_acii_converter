@@ -9,11 +9,16 @@ use ratatui::{
     crossterm::event::{self, Event, KeyCode},
     widgets::Paragraph,
 };
-use std::{sync::mpsc, thread, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, mpsc},
+    thread,
+    time::Duration,
+};
 
 use crate::{ascii_converter::*, cli::File};
 
-pub fn run() -> Result<(), String> {
+pub fn run(size: u32) -> Result<(), String> {
     match parse() {
         Ok(file_name) => {
             if let Err(_) = color_eyre::install() {
@@ -22,7 +27,7 @@ pub fn run() -> Result<(), String> {
             let terminal = ratatui::init();
             let app_result = match file_name {
                 File::Video(name) => run_tui_video(terminal, name),
-                File::Image(name) => run_tui_image(terminal, name),
+                File::Image(name) => run_tui_image(terminal, name, size),
             };
             ratatui::restore();
             if let Err(_) = app_result {
@@ -34,9 +39,9 @@ pub fn run() -> Result<(), String> {
     }
 }
 
-fn run_tui_image(mut terminal: DefaultTerminal, file_name: String) -> Result<()> {
+fn run_tui_image(mut terminal: DefaultTerminal, file_name: String, size: u32) -> Result<()> {
     let conf: Config = ConfigBuilder::new()
-        .target_size(NonZeroU32::new(200).unwrap())
+        .target_size(NonZeroU32::new(size).unwrap())
         .color(false)
         .build();
     let art = convert_image(file_name, &conf);
@@ -50,28 +55,15 @@ fn run_tui_image(mut terminal: DefaultTerminal, file_name: String) -> Result<()>
 }
 
 fn run_tui_video(mut terminal: DefaultTerminal, file_name: String) -> Result<()> {
-    //println!("{art}");
-    // let images = get_iamges_ascii(vec!["test.png", "test2.png", "test3.png"]);
-    //
-    let conf: Config = ConfigBuilder::new()
-        .target_size(NonZeroU32::new(200).unwrap())
-        .color(false)
-        .build();
-
     let (image_t, image_r) = mpsc::channel::<String>();
+    // let loaded_frames: Arc<Mutex<HashMap<usize, String>>> = Arc::new(Mutex::new(HashMap::new()));
     let file_name = file_name.to_string(); // Convert &str to owned String
     thread::spawn(move || {
-        get_frames_from_video(&file_name, &conf, image_t);
+        get_frames_from_video(&file_name, image_t);
     });
-    loop {
-        match image_r.recv() {
-            Ok(image) => {
-                terminal.draw(|frame: &mut Frame| draw(frame, &image))?;
-            }
-            _ => {
-                break;
-            }
-        }
+
+    while let Ok(art) = image_r.recv() {
+        terminal.draw(|frame: &mut Frame| draw(frame, &art))?;
 
         if should_quit()? {
             break;
@@ -105,7 +97,7 @@ fn draw(frame: &mut Frame, text: &String) {
 }
 
 fn should_quit() -> Result<bool> {
-    if event::poll(Duration::from_millis(1)).context("event poll failed")? {
+    if event::poll(Duration::from_millis(33)).context("event poll failed")? {
         if let Event::Key(key) = event::read().context("event read failed")? {
             return Ok(KeyCode::Char('q') == key.code);
         }

@@ -4,13 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.101"
-artem = "3.0.0"
-clap = { version = "4.5.59", features = ["derive"] }
-color-eyre = "0.6.5"
-image = "0.25.9"
+anyhow      = "1.0.101"
+artem       = "3.0.0"
+clap        = { version = "4.5.59", features = ["derive"] }
+color-eyre  = "0.6.5"
+crossterm   = "0.29.0"
+image       = "0.25.9"
 image_ascii = "0.1.1"
-imageproc = "0.26.0"
+imageproc   = "0.26.0"
 ndarray = "0.17.2"
-ratatui = "0.30.0"
-video-rs = "0.10.5"
+ratatui     = "0.30.0"
+video-rs = { version = "0.11", features = ["ndarray"] }
