@@ -41,7 +41,7 @@ pub fn get_frames_from_video_colored(decoder: &mut Decoder, image_t: Sender<Para
         image_t.send(res).unwrap();
     }
 }
-
+//TODO: optimize it probabl
 pub fn convert_frame_to_ascii_colored(frame: Frame) -> Paragraph<'static> {
     let k = 0.017;
     let mut res = Vec::new();

@@ -134,6 +134,7 @@ impl AppState {
             speed: false,
         }
     }
+    // TODO: fix pause issue with skiping frames
     fn update(&mut self) -> Result<()> {
         if event::poll(Duration::from_millis(33)).context("event poll failed")? {
             if let Event::Key(key) = event::read().context("event read failed")? {

@@ -11,7 +11,7 @@ pub enum File {
 struct Data {
     filename: String,
 }
-
+// TODO: add color support as command line option
 pub fn parse() -> Result<File, String> {
     let data = Data::parse();
     let path_path = Path::new(&data.filename);
