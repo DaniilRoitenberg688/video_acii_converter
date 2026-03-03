@@ -25,5 +25,5 @@ pub fn parse() -> Result<File, String> {
             _ => return Err("unknown filetype".to_string()),
         }
     }
-    return Err("something went wrong".to_string());
+    Err("something went wrong".to_string())
 }
